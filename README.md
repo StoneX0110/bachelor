@@ -1,2 +1,2 @@
 # bachelor
-Required programs: java
+Required programs: Java

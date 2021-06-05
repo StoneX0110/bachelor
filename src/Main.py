@@ -30,7 +30,10 @@ output = open(outputDir, 'w', encoding='UTF-8')
 # patterns of noise
 number_rb = '\([0-9]+\)'  # number within round brackets, e.g. "(1)"
 number_fs = '[0-9]+\.'  # number ending with full stop, e.g. "1."
-# TODO: add letters and roman numbering within round brackets as noise patterns and remove them
+letter_sb = ' [a-z]\)'  # space + lower-case letter ending with round bracket
+letter_rb = '\([a-z]\)'  # lower-case letter within round brackets
+# TODO: add oman numbering within round brackets as noise patterns and remove them
+
 
 # removes a pattern from a line and returns the modified line
 def remove_noise(pattern, line):
@@ -54,6 +57,8 @@ for line in input_file:  # line = one text block in PDF
         # remove noise within text blocks
         line = remove_noise(number_fs, line)
         line = remove_noise(number_rb, line)
+        line = remove_noise(letter_rb, line)
+        line = remove_noise(letter_sb, line)
 
     output.write(line)
 

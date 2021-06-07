@@ -31,8 +31,8 @@ output = open(outputDir, 'w', encoding='UTF-8')
 number_rb = '\([0-9]+\)'  # number within round brackets, e.g. "(1)"
 number_fs = '[0-9]+\.'  # number ending with full stop, e.g. "1."
 letter_rb = ' \(?[a-z]\)'  # lower-case letter within round brackets
-# TODO: add oman numbering within round brackets as noise patterns and remove them
-
+roman_rb = '\([x,i,v]{1,4}\)'  # roman numerals within round brackets, recognizes up to no. 17 (xvii)
+patterns = (number_fs, number_rb, letter_rb, roman_rb)
 
 # removes a pattern from a line and returns the modified line
 def remove_noise(pattern, line):
@@ -54,9 +54,8 @@ for line in input_file:  # line = one text block in PDF
             line = line.removeprefix(match.group(0))[1:]
 
         # remove noise within text blocks
-        line = remove_noise(number_fs, line)
-        line = remove_noise(number_rb, line)
-        line = remove_noise(letter_rb, line)
+        for pattern in patterns:
+            line = remove_noise(pattern, line)
 
     output.write(line)
 

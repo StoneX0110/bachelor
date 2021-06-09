@@ -32,7 +32,8 @@ number_rb = '\([0-9]+\)'  # number within round brackets, e.g. "(1)"
 number_fs = '[0-9]+\.'  # number ending with full stop, e.g. "1."
 letter_rb = ' \(?[a-z]\)'  # lower-case letter within round brackets
 roman_rb = '\([x,i,v]{1,4}\)'  # roman numerals within round brackets, recognizes up to no. 17 (xvii)
-patterns = (number_fs, number_rb, letter_rb, roman_rb)
+directive = '[0-9]+/[0-9]+/[A-Z]+ '  # detailed name of a directive, e.g. 91/477/EEC
+patterns = (number_fs, number_rb, letter_rb, roman_rb, directive)
 
 
 for line in input_file:  # line = one text block in PDF

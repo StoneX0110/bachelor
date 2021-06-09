@@ -15,7 +15,7 @@ while not os.path.exists(inputDir):
 # directory of output to be stored at, asked in user prompt
 outputDir = input("Enter a path for the output file to be stored at (please use backslashes '\\', not slashes!): ")
 while not os.path.exists(outputDir):
-    print("File could not be found at " + str(outputDir))
+    print("Path '" + str(outputDir) + "' does not exist.")
     outputDir = input("Please enter a valid path: ")
 outputDir += '\\' + input("Enter name of output file: ") + '.txt'
 
@@ -34,12 +34,10 @@ letter_rb = ' \(?[a-z]\)'  # lower-case letter within round brackets
 roman_rb = '\([x,i,v]{1,4}\)'  # roman numerals within round brackets, recognizes up to no. 17 (xvii)
 patterns = (number_fs, number_rb, letter_rb, roman_rb)
 
+
 # removes a pattern from a line and returns the modified line
 def remove_noise(pattern, line):
-    match = re.search(pattern, line)
-    while match:
-        line = line[:match.start()] + line[match.end():]
-        match = re.search(pattern, line)
+    line = re.sub(pattern, '', line)
     return line
 
 

@@ -35,12 +35,6 @@ roman_rb = '\([x,i,v]{1,4}\)'  # roman numerals within round brackets, recognize
 patterns = (number_fs, number_rb, letter_rb, roman_rb)
 
 
-# removes a pattern from a line and returns the modified line
-def remove_noise(pattern, line):
-    line = re.sub(pattern, '', line)
-    return line
-
-
 for line in input_file:  # line = one text block in PDF
     if line != '\n':
         # remove enumeration at start of each text block
@@ -53,7 +47,7 @@ for line in input_file:  # line = one text block in PDF
 
         # remove noise within text blocks
         for pattern in patterns:
-            line = remove_noise(pattern, line)
+            line = re.sub(pattern, '', line)
 
     output.write(line)
 

@@ -1,34 +1,72 @@
 import os
 import re
+import string
 
-# PdfAct https://github.com/ad-freiburg/pdfact
-
-# directory of pdfact.jar
-jarDir = os.getcwd().removesuffix('src') + 'pdfact\\bin\\pdfact.jar'
+# PDFBox https://pdfbox.apache.org
 
 # directory of pdf to be converted, asked in user prompt
-inputDir = input("Enter a path to the PDF file (please use backslashes '\\', not slashes!): ")
+inputDir = input("Enter a path to the PDF file (please use slashes '/', not backslashes!): ")
 while not os.path.exists(inputDir):
     print("File could not be found at " + str(inputDir))
     inputDir = input("Please enter a valid path: ")
 
 # directory of output to be stored at, asked in user prompt
-outputDir = input(
-    "Enter a path to a folder where the output file(s) should be stored at (please use backslashes '\\', not slashes!): ")
+outputDir = input("Enter a path to a folder where the output file(s) should be stored at (please use slashes '/', not backslashes!): ")
 while not os.path.exists(outputDir):
     print("Path '" + str(outputDir) + "' does not exist.")
     outputDir = input("Please enter a valid path: ")
-outputDir += '\\' + input("Enter name of output file(s): ") + '.txt'
+output_name = '/' + input("Enter name of output file(s): ") + '.txt'
 
 # granularity by which the document will be split (by its chapters, articles, etc.) into multiple documents
 granularity = input("Enter granularity of splitting (available options: chapter | section | article | none): ")
 while granularity != "chapter" and granularity != "section" and granularity != "article" and granularity != "none":
     granularity = input("Please enter a valid option (available options: chapter | section | article | none): ")
 
+
 print("Converting PDF to plain text...")
-# convert pdf to plain text, one raw version with all elements, one with only headings and body elements
-os.system('java -jar ' + jarDir + ' ' + inputDir + ' output_raw.txt')
-os.system('java -jar ' + jarDir + ' ' + inputDir + ' output_filtered.txt' + ' --include-roles heading,body')
+# convert pdf to plain text
+os.system(f'java -jar pdfbox-app-3.0.0-RC1.jar export:text -i={inputDir}')
+
+input_file = open(inputDir.replace(".pdf", ".txt"), encoding='UTF-8')
+output = open(outputDir + output_name, 'w', encoding='UTF-8')
+
+# TODO remove page headers and footnotes before removing newlines
+
+# remove every newline when there is no punctuation mark at end of line (except comma)
+punctuation_marks = {',', '.', '!', '?', ';', ':'}
+ends_with_comma = False
+for line in input_file:
+    line = line.removesuffix('\n')
+    if ends_with_comma:
+        # check if comma at end separates different logical text blocks
+        if line[0] not in string.ascii_lowercase:
+            # comma separates text blocks, so we can add newline
+            line = '\n' + line
+        ends_with_comma = False
+
+    # check for punctuation mark at end of line
+    line = line.removesuffix(" ")
+    if line[len(line)-1] in punctuation_marks:
+        # if comma at end, don't add newline in case it is normal comma within sentence
+        if line[len(line)-1] == ',':
+            ends_with_comma = True
+            line += " "
+        else:
+            # add newline if there is a punctuation mark at end of line
+            line += '\n'
+    else:
+        # merge word which was separated at end of line (information loss in case of hyphenated word)
+        if line.endswith('­'):
+            line = line.removesuffix('­')
+        else:
+            line += " "
+
+    output.write(line)
+
+input_file.close()
+output.close()
+os.remove(inputDir.replace(".pdf", ".txt"))
+
 
 print("Finished conversion, splitting document...")
 
@@ -41,7 +79,7 @@ file.close()
 
 # TODO split annex from rest of document
 
-
+# TODO rework this part because of new text extraction tool
 counter = 0
 if granularity == "chapter" or granularity == "section":
     # search for all chapters
@@ -122,6 +160,7 @@ elif granularity == "article":
 
 print("Removing noise...")
 
+# TODO rework this part because of new text extraction tool
 # patterns of noise
 # TODO remove remaining titles of article/chapter/section/sub-section/etc. ('Article [0-9]+\n' or similar)
 number_rb = '\([0-9]+\)'  # number within round brackets, e.g. "(1)"

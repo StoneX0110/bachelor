@@ -11,7 +11,8 @@ while not os.path.exists(inputDir):
     inputDir = input("Please enter a valid path: ")
 
 # directory of output to be stored at, asked in user prompt
-outputDir = input("Enter a path to a folder where the output file(s) should be stored at (please use slashes '/', not backslashes!): ")
+outputDir = input(
+    "Enter a path to a folder where the output file(s) should be stored at (please use slashes '/', not backslashes!): ")
 while not os.path.exists(outputDir):
     print("Path '" + str(outputDir) + "' does not exist.")
     outputDir = input("Please enter a valid path: ")
@@ -22,7 +23,6 @@ granularity = input("Enter granularity of splitting (available options: chapter 
 while granularity != "chapter" and granularity != "section" and granularity != "article" and granularity != "none":
     granularity = input("Please enter a valid option (available options: chapter | section | article | none): ")
 
-
 print("Converting PDF to plain text...")
 # convert pdf to plain text
 os.system(f'java -jar pdfbox-app-3.0.0-RC1.jar export:text -i={inputDir}')
@@ -30,43 +30,49 @@ os.system(f'java -jar pdfbox-app-3.0.0-RC1.jar export:text -i={inputDir}')
 input_file = open(inputDir.replace(".pdf", ".txt"), encoding='UTF-8')
 output = open(outputDir + output_name, 'w', encoding='UTF-8')
 
-# TODO remove page headers and footnotes before removing newlines
+# TODO remove footnotes before removing newlines
 
+# the following are regex to identify page headers
+date = '[0-9]{1,2}.[0-9]{1,2}.[0-9]{2,4}'
+issue = 'L [0-9]+/[0-9]+'
+title = 'Official Journal of the European Union'
+language = 'EN'
 # remove every newline when there is no punctuation mark at end of line (except comma)
 punctuation_marks = {',', '.', '!', '?', ';', ':'}
 ends_with_comma = False
 for line in input_file:
-    line = line.removesuffix('\n')
-    if ends_with_comma:
-        # check if comma at end separates different logical text blocks
-        if line[0] not in string.ascii_lowercase:
-            # comma separates text blocks, so we can add newline
-            line = '\n' + line
-        ends_with_comma = False
+    # filter out page headers
+    if not re.search(date, line) or not re.search(issue, line) or not re.search(title, line) or not re.search(language, line):
+        line = line.removesuffix('\n')
+        if ends_with_comma:
+            # check if comma at end separates different logical text blocks
+            if line[0] not in string.ascii_lowercase:
+                # comma separates text blocks, so we can add newline
+                line = '\n' + line
+            ends_with_comma = False
 
-    # check for punctuation mark at end of line
-    line = line.removesuffix(" ")
-    if line[len(line)-1] in punctuation_marks:
-        # if comma at end, don't add newline in case it is normal comma within sentence
-        if line[len(line)-1] == ',':
-            ends_with_comma = True
-            line += " "
+        # check for punctuation mark at end of line
+        line = line.removesuffix(" ")
+        if line[len(line) - 1] in punctuation_marks:
+            # if comma at end, don't add newline in case it is normal comma within sentence
+            if line[len(line) - 1] == ',':
+                ends_with_comma = True
+                line += " "
+            else:
+                # add newline if there is a punctuation mark at end of line
+                line += '\n'
         else:
-            # add newline if there is a punctuation mark at end of line
-            line += '\n'
-    else:
-        # merge word which was separated at end of line (information loss in case of hyphenated word)
-        if line.endswith('­'):
-            line = line.removesuffix('­')
-        else:
-            line += " "
+            # merge word which was separated at end of line (information loss in case of hyphenated word)
+            if line.endswith('­'):
+                line = line.removesuffix('­')
+            else:
+                line += " "
 
-    output.write(line)
+        output.write(line)
 
 input_file.close()
 output.close()
 os.remove(inputDir.replace(".pdf", ".txt"))
-
 
 print("Finished conversion, splitting document...")
 
@@ -173,9 +179,9 @@ directive_new = '(\(EU\)|\(Euratom\)|\(EU, Euratom\)|\(CFSP\)) [0-9]+/[0-9]+'  #
 patterns = (number_fs, number_rb, letter_rb, roman_rb, regulation, directive_old, directive_new)
 
 # remove noise from each previously created document
-input_file = open(outputDir, encoding='UTF-8')  # TODO implement iteration through all previously splitted documents
+input_file = open(outputDir, encoding='UTF-8')  # TODO implement iteration through all previously split documents
 output = open(outputDir, 'w', encoding='UTF-8')  # TODO see above
-for line in input_file:  # line = one text block in PDF
+for line in input_file:
     if line != '\n':
         # remove enumeration at start of each text block
         match = re.match(number_rb, line)

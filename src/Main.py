@@ -30,29 +30,50 @@ os.system(f'java -jar pdfbox-app-3.0.0-RC1.jar export:text -i={inputDir}')
 input_file = open(inputDir.replace(".pdf", ".txt"), encoding='UTF-8')
 output = open(outputDir + output_name, 'w', encoding='UTF-8')
 
-# TODO remove footnotes before removing newlines
 
-# the following are regex to identify page headers
-date = '[0-9]{1,2}.[0-9]{1,2}.[0-9]{2,4}'
-issue = 'L [0-9]+/[0-9]+'
-title = 'Official Journal of the European Union'
-language = 'EN'
-# remove every newline when there is no punctuation mark at end of line (except comma)
-punctuation_marks = {',', '.', '!', '?', ';', ':'}
-ends_with_comma = False
-for line in input_file:
+def editor(line, footnote):
+    global ends_with_comma
     # filter out page headers
     if not re.search(date, line) or not re.search(issue, line) or not re.search(title, line) or not re.search(language, line):
-        line = line.removesuffix('\n')
+
+        if footnote:  # stores whether it is possible that the next paragraph is a footnote
+            paragraph = ""  # stores current paragraph
+            # footnotes always start with a number within brackets
+            if re.match('\( ?[0-9]+ ?\)', line):
+                # store current paragraph (end of paragraph indicated by punctuation mark)
+                while not re.search('\.[ ]*\n', line) and not re.search(';[ ]*\n', line) and not re.search(':[ ]*\n', line):
+                    paragraph += line
+                    line = input_file.readline()
+                paragraph += line
+                line = input_file.readline()
+
+                # check if paragraph is a footnote
+                if "OJ" not in paragraph and paragraph != "":
+                    # if it is not a footnote, the paragraph is put into the method again
+                    ewc_temp = ends_with_comma
+                    ends_with_comma = False
+                    paragraph = paragraph.split('\n')
+                    for line_of_text in paragraph:
+                        editor(line_of_text + '\n', False)
+                    ends_with_comma = ewc_temp
+
+                editor(line, True)
+                return
+
         if ends_with_comma:
-            # check if comma at end separates different logical text blocks
+            # check if previous comma separated different logical text blocks
             if line[0] not in string.ascii_lowercase:
                 # comma separates text blocks, so we can add newline
                 line = '\n' + line
             ends_with_comma = False
 
+        # remove empty spaces and newline at end of line
+        line = line[:re.search('[ ]*$', line).start()]
+        # remove empty lines
+        if line == "":
+            return
+
         # check for punctuation mark at end of line
-        line = line.removesuffix(" ")
         if line[len(line) - 1] in punctuation_marks:
             # if comma at end, don't add newline in case it is normal comma within sentence
             if line[len(line) - 1] == ',':
@@ -70,8 +91,22 @@ for line in input_file:
 
         output.write(line)
 
-input_file.close()
+
+# regex to identify page headers
+date = '[0-9]{1,2}.[0-9]{1,2}.[0-9]{2,4}'
+issue = 'L [0-9]+/[0-9]+'
+title = 'Official Journal of the European Union'
+language = 'EN'
+
+punctuation_marks = {',', '.', '!', '?', ';', ':'}
+
+ends_with_comma = False  # stores whether previous line ended with comma
+
+for line in input_file:
+    editor(line, True)
+
 output.close()
+input_file.close()
 os.remove(inputDir.replace(".pdf", ".txt"))
 
 print("Finished conversion, splitting document...")

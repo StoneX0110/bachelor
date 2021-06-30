@@ -128,7 +128,6 @@ else:
 input_file.close()
 os.remove(inputDir.replace(".pdf", ".txt"))
 
-
 print("Removing noise...")
 
 
@@ -221,7 +220,37 @@ def editor(line, footnote):
         result += line
 
 
-# clean-up documents
+# patterns of noise
+number_rb = '\( ?[0-9]+ ?\)'  # number within round brackets, e.g. "(1)"
+number_fs = '[0-9]+\.'  # number ending with full stop, e.g. "1."
+letter_rb = '\(?[a-z]\)'  # lower-case letter within round brackets
+roman_rb = '\([x,i,v]{1,4}\)'  # roman numerals within round brackets, recognizes up to no. 17 (xvii)
+regulation = '\(E?E[CU]\) (No )?[0-9]+/[0-9]+'  # name of a Regulation, e.g. "(EEC) No 2956/84"
+directive_old = '(No )?[0-9]+/[0-9]+/[A-Z]+'  # name of a Directive or Decision before 1 January 2015, e.g. "91/477/EEC"
+directive_new = '(\(EU\)|\(Euratom\)|\(EU, Euratom\)|\(CFSP\)) [0-9]+/[0-9]+'  # name of a Directive/Decision after 01.01.2015, e.g. "(EU) 2016/680"
+patterns = (number_fs, number_rb, letter_rb, roman_rb, regulation, directive_old, directive_new)
+
+
+# remove noise from each previously created document
+def remove_noise(line):
+    global result
+    if line != '\n':
+        # remove enumeration at start of each text block
+        match = re.match(number_rb, line)
+        if match:
+            line = line.removeprefix(match.group(0))[1:]
+        match = re.match(number_fs, line)
+        if match:
+            line = line.removeprefix(match.group(0))[1:]
+
+        # remove noise within text blocks
+        for pattern in patterns:
+            line = re.sub(pattern, '', line)
+
+    result += line
+
+
+# remove noise in documents
 for document in documents:
     # remove remaining titles in document
     remove_titles(document)
@@ -236,36 +265,12 @@ for document in documents:
     output.write(result)
     output.close()
 
-
-# TODO rework this part because of new text extraction tool
-# patterns of noise
-number_rb = '\([0-9]+\)'  # number within round brackets, e.g. "(1)"
-number_fs = '[0-9]+\.'  # number ending with full stop, e.g. "1."
-letter_rb = ' \(?[a-z]\)'  # lower-case letter within round brackets
-roman_rb = '\([x,i,v]{1,4}\)'  # roman numerals within round brackets, recognizes up to no. 17 (xvii)
-regulation = '\(E?E[CU]\) (No )?[0-9]+/[0-9]+'  # name of a Regulation, e.g. "(EEC) No 2956/84"
-directive_old = '(No )?[0-9]+/[0-9]+/[A-Z]+'  # name of a Directive or Decision before 1 January 2015, e.g. "91/477/EEC"
-directive_new = '(\(EU\)|\(Euratom\)|\(EU, Euratom\)|\(CFSP\)) [0-9]+/[0-9]+'  # name of a Directive or Decision after 1 January 2015, e.g. "(EU) 2016/680"
-patterns = (number_fs, number_rb, letter_rb, roman_rb, regulation, directive_old, directive_new)
-
-# remove noise from each previously created document
-input_file = open(outputDir, encoding='UTF-8')  # TODO implement iteration through all previously split documents
-output = open(outputDir, 'w', encoding='UTF-8')  # TODO see above
-for line in input_file:
-    if line != '\n':
-        # remove enumeration at start of each text block
-        match = re.match(number_rb, line)
-        if match:
-            line = line.removeprefix(match.group(0))[1:]
-        match = re.match(number_fs, line)
-        if match:
-            line = line.removeprefix(match.group(0))[1:]
-
-        # remove noise within text blocks
-        for pattern in patterns:
-            line = re.sub(pattern, '', line)
-
-    output.write(line)
-
-input_file.close()
-output.close()
+    # remove remaining noise
+    input_file = open(document, encoding='UTF-8')
+    result = ""
+    for line in input_file:
+        remove_noise(line)
+    input_file.close()
+    output = open(document, 'w', encoding='UTF-8')
+    output.write(result)
+    output.close()

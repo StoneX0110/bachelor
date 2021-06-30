@@ -38,21 +38,21 @@ class GetOutOfLoop(Exception):
 input_file = open(inputDir.replace(".pdf", ".txt"), encoding='UTF-8')
 counter = 0  # keeps track of chapter/article count
 documents = []  # stores names of all created documents for later processing
-annex = 'ANNEX.+?[ ]*\n'  # pattern to recognize start of annex
+annex = 'ANNEX.+?\n'  # pattern to recognize start of annex
 
 if granularity == "chapter" or granularity == "section":
-    pattern = 'CHAPTER .+?[ ]*\n'
+    pattern = 'CHAPTER .+?\n'
     try:
         for line in input_file:
             # store every chapter in its own file
             output = open(f'{outputDir}_chapter_{counter}.txt', 'w', encoding='UTF-8')
             # break when new chapter is reached
             while not re.match(pattern, line) and line != "":
-                if re.match(annex, line, re.DOTALL):
+                if re.match(annex, line):
                     output.close()
                     raise GetOutOfLoop
                 # leave out all article names
-                if not re.match('Article [0-9]+[ ]*\n', line):
+                if not re.match('Article[ 0-9]+\n', line):
                     output.write(line)
                 line = input_file.readline()
             output.close()
@@ -62,11 +62,11 @@ if granularity == "chapter" or granularity == "section":
         pass
 
     if granularity == "section":
+        pattern = '((S ?E ?C ?T ?I ?O ?N)|(S ?e ?c ?t ?i ?o ?n))[ 0-9]+\n'
         # if counter > 1 ?
         # search every chapter for sections
         for i in range(counter - 1):
             counter2 = 0  # keeps track of section count
-            pattern = '((S ?E ?C ?T ?I ?O ?N)|(S ?e ?c ?t ?i ?o ?n)).+?[ ]*\n'
             chapter = open(f'{outputDir}_chapter_{i + 1}.txt', 'r', encoding='UTF-8')
             for line in chapter:
                 # store every section in its own file
@@ -92,7 +92,7 @@ if granularity == "chapter" or granularity == "section":
                 os.remove(f'{outputDir}_chapter_{i + 1}_section_{counter2}.txt')
 
 elif granularity == "article":
-    pattern = 'Article [0-9]+[ ]*\n'
+    pattern = 'Article[ 0-9]+\n'
     try:
         for line in input_file:
             # store every article in its own file
@@ -100,7 +100,7 @@ elif granularity == "article":
             documents.append(f'{outputDir}_article_{counter}.txt')
             # break when new article is reached
             while not re.match(pattern, line) and line != "":
-                if re.match(annex, line, re.DOTALL):
+                if re.match(annex, line):
                     output.close()
                     raise GetOutOfLoop
                 output.write(line)
@@ -115,7 +115,7 @@ else:
     output = open(f'{outputDir}.txt', 'w', encoding='UTF-8')
     documents.append(f'{outputDir}.txt')
     for line in input_file:
-        if re.match(annex, line, re.DOTALL):
+        if re.match(annex, line):
             output.close()
             raise GetOutOfLoop
         else:
@@ -126,17 +126,18 @@ input_file.close()
 os.remove(inputDir.replace(".pdf", ".txt"))
 
 
-# TODO remove all remaining occurrences of TITLE, PART, Chapter, Section, Sub-Section, Article etc. in all documents
-# can be done with re.sub
+# removes all remaining titles of subdivisions in a document
 def remove_titles(file):
-    input_file = open(file, encoding='UTF-8')
-    document = input_file.read()
-    input_file.close()
+    patterns = ('PART .+?\n', 'TITLE .+?\n', 'CHAPTER .+?\n', '((S ?E ?C ?T ?I ?O ?N)|(S ?e ?c ?t ?i ?o ?n))[ 0-9]+\n',
+                '((S ?U ?B ?- ?S ?E ?C ?T ?I ?O ?N)|(S ?u ?b ?- ?S ?e ?c ?t ?i ?o ?n))[ 0-9]+\n', 'Article[ 0-9]+\n')
 
+    input_file = open(file, encoding='UTF-8').read()
+    # delete all titles
+    for pattern in patterns:
+        input_file = re.sub(pattern, '', input_file)
+    # update file
     output = open(file, 'w', encoding='UTF-8')
-    document = re.sub('pattern', '', document)
-    output.write(document)
-
+    output.write(input_file)
     output.close()
 
 
@@ -216,10 +217,11 @@ def editor(line, footnote):
 for document in documents:
     remove_titles(document)
 
-    input_file = open(document, 'w', encoding='UTF-8')
-    for line in document:
+    input_file = open(document, encoding='UTF-8').read()
+    output = open(document, 'w', encoding='UTF-8')
+    for line in input_file:
         editor(line, True)
-    input_file.close()
+    output.close()
 
 
 print("Removing noise...")

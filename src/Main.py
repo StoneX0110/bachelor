@@ -16,7 +16,7 @@ outputDir = input(
 while not os.path.exists(outputDir):
     print("Path '" + str(outputDir) + "' does not exist.")
     outputDir = input("Please enter a valid path: ")
-outputDir += '/' + input("Enter name of output file(s): ") + '.txt'
+outputDir += '/' + input("Enter name of output file(s): ")
 
 # granularity by which the document will be split (by its chapters, articles, etc.) into multiple documents
 granularity = input("Enter granularity of splitting (available options: chapter | section | article | none): ")
@@ -27,7 +27,7 @@ print("Converting PDF to plain text...")
 # convert pdf to plain text
 os.system(f'java -jar pdfbox-app-3.0.0-RC1.jar export:text -i={inputDir}')
 
-print("Finished conversion, splitting document...")
+print("Splitting document...")
 
 
 # gets thrown when annex is reached when reading the input
@@ -46,6 +46,8 @@ if granularity == "chapter" or granularity == "section":
         for line in input_file:
             # store every chapter in its own file
             output = open(f'{outputDir}_chapter_{counter}.txt', 'w', encoding='UTF-8')
+            documents.append(f'{outputDir}_chapter_{counter}.txt')
+            counter += 1
             # break when new chapter is reached
             while not re.match(pattern, line) and line != "":
                 if re.match(annex, line):
@@ -56,8 +58,6 @@ if granularity == "chapter" or granularity == "section":
                     output.write(line)
                 line = input_file.readline()
             output.close()
-            documents.append(f'{outputDir}_chapter_{counter}.txt')
-            counter += 1
     except GetOutOfLoop:
         pass
 
@@ -67,7 +67,7 @@ if granularity == "chapter" or granularity == "section":
         # search every chapter for sections
         for i in range(counter - 1):
             counter2 = 0  # keeps track of section count
-            chapter = open(f'{outputDir}_chapter_{i + 1}.txt', 'r', encoding='UTF-8')
+            chapter = open(f'{outputDir}_chapter_{i + 1}.txt', encoding='UTF-8')
             for line in chapter:
                 # store every section in its own file
                 output = open(f'{outputDir}_chapter_{i + 1}_section_{counter2}.txt', 'w', encoding='UTF-8')
@@ -98,6 +98,7 @@ elif granularity == "article":
             # store every article in its own file
             output = open(f'{outputDir}_article_{counter}.txt', 'w', encoding='UTF-8')
             documents.append(f'{outputDir}_article_{counter}.txt')
+            counter += 1
             # break when new article is reached
             while not re.match(pattern, line) and line != "":
                 if re.match(annex, line):
@@ -105,7 +106,6 @@ elif granularity == "article":
                     raise GetOutOfLoop
                 output.write(line)
                 line = input_file.readline()
-            counter += 1
             output.close()
     except GetOutOfLoop:
         pass
@@ -114,16 +114,22 @@ else:
     # everything is put into one document
     output = open(f'{outputDir}.txt', 'w', encoding='UTF-8')
     documents.append(f'{outputDir}.txt')
-    for line in input_file:
-        if re.match(annex, line):
-            output.close()
-            raise GetOutOfLoop
-        else:
-            output.write(line)
-    output.close()
+    try:
+        for line in input_file:
+            if re.match(annex, line):
+                output.close()
+                raise GetOutOfLoop
+            else:
+                output.write(line)
+        output.close()
+    except GetOutOfLoop:
+        pass
 
 input_file.close()
 os.remove(inputDir.replace(".pdf", ".txt"))
+
+
+print("Removing noise...")
 
 
 # removes all remaining titles of subdivisions in a document
@@ -152,8 +158,10 @@ punctuation_marks = {',', '.', '!', '?', ';', ':'}
 ends_with_comma = False  # stores whether previous line ended with comma
 
 
+# removes spurious newlines, page headers and footnotes
 def editor(line, footnote):
     global ends_with_comma
+    global result
     # filter out page headers
     if not re.search(date, line) or not re.search(issue, line) or not re.search(title, line) or not re.search(language, line):
 
@@ -210,26 +218,27 @@ def editor(line, footnote):
             else:
                 line += " "
 
-        output.write(line)
+        result += line
 
 
-# TODO test appropriately
+# clean-up documents
 for document in documents:
+    # remove remaining titles in document
     remove_titles(document)
 
-    input_file = open(document, encoding='UTF-8').read()
-    output = open(document, 'w', encoding='UTF-8')
+    # remove spurious newlines, page headers and footnotes
+    input_file = open(document, encoding='UTF-8')
+    result = ""
     for line in input_file:
         editor(line, True)
+    input_file.close()
+    output = open(document, 'w', encoding='UTF-8')
+    output.write(result)
     output.close()
-
-
-print("Removing noise...")
 
 
 # TODO rework this part because of new text extraction tool
 # patterns of noise
-# TODO remove remaining titles of article/chapter/section/sub-section/etc. ('Article [0-9]+\n' or similar)
 number_rb = '\([0-9]+\)'  # number within round brackets, e.g. "(1)"
 number_fs = '[0-9]+\.'  # number ending with full stop, e.g. "1."
 letter_rb = ' \(?[a-z]\)'  # lower-case letter within round brackets

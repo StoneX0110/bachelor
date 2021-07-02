@@ -38,7 +38,7 @@ class GetOutOfLoop(Exception):
 input_file = open(inputDir.replace(".pdf", ".txt"), encoding='UTF-8')
 counter = 0  # keeps track of chapter/article count
 documents = []  # stores names of all created documents for later processing
-annex = 'ANNEX.+?\n'  # pattern to recognize start of annex
+annex = 'ANNEX [I ]+\n'  # pattern to recognize start of annex
 
 if granularity == "chapter" or granularity == "section":
     pattern = 'CHAPTER .+?\n'
@@ -53,16 +53,14 @@ if granularity == "chapter" or granularity == "section":
                 if re.match(annex, line):
                     output.close()
                     raise GetOutOfLoop
-                # leave out all article names
-                if not re.match('Article[ 0-9]+\n', line):
-                    output.write(line)
+                output.write(line)
                 line = input_file.readline()
             output.close()
     except GetOutOfLoop:
         pass
 
     if granularity == "section":
-        pattern = '((S ?E ?C ?T ?I ?O ?N)|(S ?e ?c ?t ?i ?o ?n))[ 0-9]+\n'
+        pattern = '((S ?E ?C ?T ?I ?O ?N)|(S ?e ?c ?t ?i ?o ?n))[ 0-9A-Z]*\n'
         # if counter > 1 ?
         # search every chapter for sections
         for i in range(counter - 1):
@@ -133,16 +131,26 @@ print("Removing noise...")
 
 # removes all remaining titles of subdivisions in a document
 def remove_titles(file):
-    patterns = ('PART .+?\n', 'TITLE .+?\n', 'CHAPTER .+?\n', '((S ?E ?C ?T ?I ?O ?N)|(S ?e ?c ?t ?i ?o ?n))[ 0-9]+\n',
-                '((S ?U ?B ?- ?S ?E ?C ?T ?I ?O ?N)|(S ?u ?b ?- ?S ?e ?c ?t ?i ?o ?n))[ 0-9]+\n', 'Article[ 0-9]+\n')
+    patterns = ('PART .+?\n', 'TITLE .+?\n', 'CHAPTER .+?\n', '((S ?E ?C ?T ?I ?O ?N)|(S ?e ?c ?t ?i ?o ?n))[ 0-9A-Z]*\n',
+                '((S ?U ?B ?- ?S ?E ?C ?T ?I ?O ?N)|(S ?u ?b ?- ?S ?e ?c ?t ?i ?o ?n))[ 0-9A-Z]*\n', 'Article[ 0-9]+\n')
 
-    input_file = open(file, encoding='UTF-8').read()
+    input_file = open(file, encoding='UTF-8')
     # delete all titles
-    for pattern in patterns:
-        input_file = re.sub(pattern, '', input_file)
+    # for pattern in patterns:
+    #     input_file = re.sub(pattern, '', input_file)
+
     # update file
+    text = ""
+    for line in input_file:
+        for pattern in patterns:
+            if re.match(pattern, line):
+                line = input_file.readline()
+                line = input_file.readline()
+                while line[0] in string.ascii_lowercase:
+                    line = input_file.readline()
+        text += line
     output = open(file, 'w', encoding='UTF-8')
-    output.write(input_file)
+    output.write(text)
     output.close()
 
 
@@ -223,10 +231,10 @@ def editor(line, footnote):
 # patterns of noise
 number_rb = '\( ?[0-9]+ ?\)'  # number within round brackets, e.g. "(1)"
 number_fs = '[0-9]+\.'  # number ending with full stop, e.g. "1."
-letter_rb = '\(?[a-z]\)'  # lower-case letter within round brackets
+letter_rb = '\([a-z]\)'  # lower-case letter within round brackets, e.g. "(a)"
 roman_rb = '\([x,i,v]{1,4}\)'  # roman numerals within round brackets, recognizes up to no. 17 (xvii)
 regulation = '\(E?E[CU]\) (No )?[0-9]+/[0-9]+'  # name of a Regulation, e.g. "(EEC) No 2956/84"
-directive_old = '(No )?[0-9]+/[0-9]+/[A-Z]+'  # name of a Directive or Decision before 1 January 2015, e.g. "91/477/EEC"
+directive_old = '(No )?[0-9]+/[0-9]+/[A-Z]+'  # name of a Directive/Decision before 01.01.2015, e.g. "91/477/EEC"
 directive_new = '(\(EU\)|\(Euratom\)|\(EU, Euratom\)|\(CFSP\)) [0-9]+/[0-9]+'  # name of a Directive/Decision after 01.01.2015, e.g. "(EU) 2016/680"
 patterns = (number_fs, number_rb, letter_rb, roman_rb, regulation, directive_old, directive_new)
 

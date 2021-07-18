@@ -5,18 +5,17 @@ import string
 # PDFBox https://pdfbox.apache.org
 
 # directory of pdf to be converted, asked in user prompt
-inputDir = input("Enter a path to the PDF file (please use slashes '/', not backslashes!): ")
+inputDir = input("Path to PDF file: ")
 while not os.path.exists(inputDir):
     print("File could not be found at " + str(inputDir))
     inputDir = input("Please enter a valid path: ")
 
 # directory of output to be stored at, asked in user prompt
-outputDir = input(
-    "Enter a path to a folder where the output file(s) should be stored at (please use slashes '/', not backslashes!): ")
+outputDir = input("Path to output folder: ")
 while not os.path.exists(outputDir):
     print("Path '" + str(outputDir) + "' does not exist.")
     outputDir = input("Please enter a valid path: ")
-outputDir += '/' + input("Enter name of output file(s): ")
+outputDir += '/' + input("Enter name of output: ")
 
 # granularity by which the document will be split (by its chapters, articles, etc.) into multiple documents
 granularity = input("Enter granularity of splitting (available options: chapter | section | article | none): ")
@@ -38,8 +37,8 @@ class GetOutOfLoop(Exception):
 input_file = open(inputDir.replace(".pdf", ".txt"), encoding='UTF-8')
 counter = 0  # keeps track of chapter/article count
 documents = []  # stores names of all created documents for later processing
-annex = 'ANNEX [I ]+\n'  # pattern to recognize start of annex
-
+annex = 'ANNEX[I ]+\n'  # pattern to recognize start of annex TODO maybe false pattern, check this
+# TODO put annex in own document and edit them, too
 if granularity == "chapter" or granularity == "section":
     pattern = 'CHAPTER .+?\n'
     try:
@@ -143,11 +142,18 @@ def remove_titles(file):
     text = ""
     for line in input_file:
         for pattern in patterns:
+            # marks all titles with identifier for later recognition
             if re.match(pattern, line):
+                # TODO test
                 line = input_file.readline()
+                line = line.removesuffix("\n")
+                text += line + "TITLE_IDENT\n"
                 line = input_file.readline()
-                while line[0] in string.ascii_lowercase:
-                    line = input_file.readline()
+                if line != "":
+                    while line[0] in string.ascii_lowercase:
+                        line = line.removesuffix("\n")
+                        text += line + "TITLE_IDENT\n"
+                        line = input_file.readline()
         text += line
     output = open(file, 'w', encoding='UTF-8')
     output.write(text)
@@ -169,6 +175,15 @@ ends_with_comma = False  # stores whether previous line ended with comma
 def editor(line, footnote):
     global ends_with_comma
     global result
+
+    # recognize titles through identifier
+    while line.endswith("TITLE_IDENT\n"):
+        # remove identifier
+        line = line.removesuffix("TITLE_IDENT\n")
+        # put raw title in result
+        result += line + "\n"
+        line = input_file.readline()
+
     # filter out page headers
     if not re.search(date, line) or not re.search(issue, line) or not re.search(title, line) or not re.search(language, line):
 
@@ -233,10 +248,11 @@ number_rb = '\( ?[0-9]+ ?\)'  # number within round brackets, e.g. "(1)"
 number_fs = '[0-9]+\.'  # number ending with full stop, e.g. "1."
 letter_rb = '\([a-z]\)'  # lower-case letter within round brackets, e.g. "(a)"
 roman_rb = '\([x,i,v]{1,4}\)'  # roman numerals within round brackets, recognizes up to no. 17 (xvii)
-regulation = '\(E?E[CU]\) (No )?[0-9]+/[0-9]+'  # name of a Regulation, e.g. "(EEC) No 2956/84"
+regulation = '\(E?E[CU]\) (No )?[0-9]+/[0-9]+'  # name of a Regulation, e.g. "(EEC) No 2956/84" # TODO maybe make (EC)/(EU)/etc. optional? -> test
 directive_old = '(No )?[0-9]+/[0-9]+/[A-Z]+'  # name of a Directive/Decision before 01.01.2015, e.g. "91/477/EEC"
 directive_new = '(\(EU\)|\(Euratom\)|\(EU, Euratom\)|\(CFSP\)) [0-9]+/[0-9]+'  # name of a Directive/Decision after 01.01.2015, e.g. "(EU) 2016/680"
-patterns = (number_fs, number_rb, letter_rb, roman_rb, regulation, directive_old, directive_new)
+# remark: number_fs is only checked at start of line, because otherwise in e.g. "[...] Regulation (EC) 183/2005. [...]" the 2005 gets removed
+patterns = (number_rb, letter_rb, roman_rb, regulation, directive_old, directive_new)
 
 
 # remove noise from each previously created document

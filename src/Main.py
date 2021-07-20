@@ -66,11 +66,17 @@ annex = 'ANNEX[I ]+\n'  # pattern to recognize start of annex TODO maybe false p
 if granularity == "chapter" or granularity == "section":
     pattern = 'CHAPTER .+?\n'
     try:
+        last_line = ""
         for line in input_file:
             # store every chapter in its own file
             output = open(f'{outputDir}_chapter_{counter}.txt', 'w', encoding='UTF-8')
             documents.append(f'{outputDir}_chapter_{counter}.txt')
             counter += 1
+
+            # adds the heading to this file (which is the last_line from previous file)
+            if last_line != "":
+                output.write(last_line)
+
             # break when new chapter is reached
             while not re.match(pattern, line) and line != "":
                 if re.match(annex, line):
@@ -79,6 +85,7 @@ if granularity == "chapter" or granularity == "section":
                 output.write(line)
                 line = input_file.readline()
             output.close()
+            last_line = line
     except GetOutOfLoop:
         pass
 
@@ -89,10 +96,16 @@ if granularity == "chapter" or granularity == "section":
         for i in range(counter - 1):
             counter2 = 0  # keeps track of section count
             chapter = open(f'{outputDir}_chapter_{i + 1}.txt', encoding='UTF-8')
+            last_line = ""
             for line in chapter:
                 # store every section in its own file
                 output = open(f'{outputDir}_chapter_{i + 1}_section_{counter2}.txt', 'w', encoding='UTF-8')
                 documents.append(f'{outputDir}_chapter_{i + 1}_section_{counter2}.txt')
+
+                # adds the heading to this file (which is the last_line from previous file)
+                if last_line != "":
+                    output.write(last_line)
+
                 # break when new section is reached
                 while not re.match(pattern, line) and line != "":
                     output.write(line)
@@ -100,6 +113,7 @@ if granularity == "chapter" or granularity == "section":
                 if re.match(pattern, line):
                     counter2 += 1
                 output.close()
+                last_line = line
             chapter.close()
             # if there were sections in the chapter, the original chapter file gets removed
             if counter2 > 0:
@@ -115,11 +129,17 @@ if granularity == "chapter" or granularity == "section":
 elif granularity == "article":
     pattern = 'Article[ 0-9]+\n'
     try:
+        last_line = ""
         for line in input_file:
             # store every article in its own file
             output = open(f'{outputDir}_article_{counter}.txt', 'w', encoding='UTF-8')
             documents.append(f'{outputDir}_article_{counter}.txt')
             counter += 1
+
+            # adds the heading to this file (which is the last_line from previous file)
+            if last_line != "":
+                output.write(last_line)
+
             # break when new article is reached
             while not re.match(pattern, line) and line != "":
                 if re.match(annex, line):
@@ -128,6 +148,7 @@ elif granularity == "article":
                 output.write(line)
                 line = input_file.readline()
             output.close()
+            last_line = line
     except GetOutOfLoop:
         pass
 

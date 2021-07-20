@@ -34,6 +34,30 @@ class GetOutOfLoop(Exception):
     pass
 
 
+# removes table of contents from input file
+def remove_toc(input_file):
+    result = ""
+    for line in input_file:
+        if re.match("TABLE OF CONTENTS", line):
+            line = input_file.readline()
+            identifier = line
+            line = input_file.readline()
+            while not re.match(line[:re.search('[ ]*$', line).start()], identifier):
+                line = input_file.readline()
+        result += line
+    return result
+
+
+# remove table of contents
+input_file = open(inputDir.replace(".pdf", ".txt"), encoding='UTF-8')
+result = remove_toc(input_file)
+input_file.close()
+input_file = open(inputDir.replace(".pdf", ".txt"), 'w', encoding='UTF-8')
+input_file.write(result)
+input_file.close()
+
+
+# split document by granularity
 input_file = open(inputDir.replace(".pdf", ".txt"), encoding='UTF-8')
 counter = 0  # keeps track of chapter/article count
 documents = []  # stores names of all created documents for later processing
@@ -199,6 +223,7 @@ def editor(line, footnote):
                 line = input_file.readline()
 
                 # check if paragraph is a footnote
+                # TODO "see page X of this Official Journal" or "not yet published in this Official Journal" as footnote identifier?
                 if "OJ" not in paragraph and paragraph != "":
                     # if it is not a footnote, the paragraph is put into the method again
                     ewc_temp = ends_with_comma

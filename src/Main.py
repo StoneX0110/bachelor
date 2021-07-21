@@ -56,116 +56,107 @@ input_file = open(inputDir.replace(".pdf", ".txt"), 'w', encoding='UTF-8')
 input_file.write(result)
 input_file.close()
 
-
-# split document by granularity
 input_file = open(inputDir.replace(".pdf", ".txt"), encoding='UTF-8')
-counter = 0  # keeps track of chapter/article count
 documents = []  # stores names of all created documents for later processing
-annex = 'ANNEX[I ]+\n'  # pattern to recognize start of annex TODO maybe false pattern, check this
-# TODO put annex in own document and edit them, too
+
+# patterns for all headings of subdivisions
+heading_patterns = {"part": 'PART .+?\n', "title": 'TITLE .+?\n', "chapter": 'CHAPTER .+?\n',
+                    "section": '((S ?E ?C ?T ?I ?O ?N)|(S ?e ?c ?t ?i ?o ?n))[ 0-9A-Z]*\n',
+                    "sub-section": '((S ?U ?B ?- ?S ?E ?C ?T ?I ?O ?N)|(S ?u ?b ?- ?S ?e ?c ?t ?i ?o ?n))[ 0-9A-Z]*\n', "article": 'Article[ 0-9]+\n',
+                    "annex": 'ANNEX[I ]+\n'}  # pattern to recognize start of annex TODO maybe false pattern, check this
+
+
+# stores annex in file
+def handle_annex(input_file):
+    output = open(f'{outputDir}_annex.txt', 'w', encoding='UTF-8')
+    for line in input_file:
+        output.write(line)
+    output.close()
+
+
+# split a document by granularity
+def split(granularity):
+    counter = 0  # keeps track of chapter/article count
+    last_line = ""
+    for line in input_file:
+        # store every part in its own file
+        output = open(f'{outputDir}_{granularity}_{counter}.txt', 'w', encoding='UTF-8')
+        documents.append(f'{outputDir}_{granularity}_{counter}.txt')
+        counter += 1
+
+        # adds the heading to this file (which is the last_line from previous file)
+        if last_line != "":
+            output.write(last_line)
+
+        # break when new chapter is reached
+        while not re.match(heading_patterns[granularity], line) and line != "":
+            # stops when annex is reached
+            if re.match(heading_patterns["annex"], line):
+                output.close()
+                handle_annex(input_file)
+                return counter
+            output.write(line)
+            line = input_file.readline()
+        output.close()
+        last_line = line
+    return counter
+
+
 if granularity == "chapter" or granularity == "section":
-    pattern = 'CHAPTER .+?\n'
-    try:
-        last_line = ""
-        for line in input_file:
-            # store every chapter in its own file
-            output = open(f'{outputDir}_chapter_{counter}.txt', 'w', encoding='UTF-8')
-            documents.append(f'{outputDir}_chapter_{counter}.txt')
-            counter += 1
-
-            # adds the heading to this file (which is the last_line from previous file)
-            if last_line != "":
-                output.write(last_line)
-
-            # break when new chapter is reached
-            while not re.match(pattern, line) and line != "":
-                if re.match(annex, line):
-                    output.close()
-                    raise GetOutOfLoop
-                output.write(line)
-                line = input_file.readline()
-            output.close()
-            last_line = line
-    except GetOutOfLoop:
-        pass
+    chapter_count = split("chapter")
 
     if granularity == "section":
-        pattern = '((S ?E ?C ?T ?I ?O ?N)|(S ?e ?c ?t ?i ?o ?n))[ 0-9A-Z]*\n'
         # if counter > 1 ?
         # search every chapter for sections
-        for i in range(counter - 1):
-            counter2 = 0  # keeps track of section count
+        for i in range(chapter_count - 1):
+            section_count = 0  # keeps track of section count per chapter
             chapter = open(f'{outputDir}_chapter_{i + 1}.txt', encoding='UTF-8')
             last_line = ""
             for line in chapter:
                 # store every section in its own file
-                output = open(f'{outputDir}_chapter_{i + 1}_section_{counter2}.txt', 'w', encoding='UTF-8')
-                documents.append(f'{outputDir}_chapter_{i + 1}_section_{counter2}.txt')
+                output = open(f'{outputDir}_chapter_{i + 1}_section_{section_count}.txt', 'w', encoding='UTF-8')
+                documents.append(f'{outputDir}_chapter_{i + 1}_section_{section_count}.txt')
 
                 # adds the heading to this file (which is the last_line from previous file)
                 if last_line != "":
                     output.write(last_line)
 
                 # break when new section is reached
-                while not re.match(pattern, line) and line != "":
+                while not re.match(heading_patterns[granularity], line) and line != "":
                     output.write(line)
                     line = chapter.readline()
-                if re.match(pattern, line):
-                    counter2 += 1
+                if re.match(heading_patterns[granularity], line):
+                    section_count += 1
                 output.close()
                 last_line = line
             chapter.close()
+
             # if there were sections in the chapter, the original chapter file gets removed
-            if counter2 > 0:
+            if section_count > 0:
                 documents.remove(f'{outputDir}_chapter_{i + 1}.txt')
                 os.remove(f'{outputDir}_chapter_{i + 1}.txt')
                 documents.remove(f'{outputDir}_chapter_{i + 1}_section_{0}.txt')
                 os.remove(f'{outputDir}_chapter_{i + 1}_section_{0}.txt')
             # if there were no sections, we need to remove the document of 'section 0' (it has the same text as the respective chapter document)
-            elif counter2 == 0:
-                documents.remove(f'{outputDir}_chapter_{i + 1}_section_{counter2}.txt')
-                os.remove(f'{outputDir}_chapter_{i + 1}_section_{counter2}.txt')
+            elif section_count == 0:
+                documents.remove(f'{outputDir}_chapter_{i + 1}_section_{section_count}.txt')
+                os.remove(f'{outputDir}_chapter_{i + 1}_section_{section_count}.txt')
 
 elif granularity == "article":
-    pattern = 'Article[ 0-9]+\n'
-    try:
-        last_line = ""
-        for line in input_file:
-            # store every article in its own file
-            output = open(f'{outputDir}_article_{counter}.txt', 'w', encoding='UTF-8')
-            documents.append(f'{outputDir}_article_{counter}.txt')
-            counter += 1
-
-            # adds the heading to this file (which is the last_line from previous file)
-            if last_line != "":
-                output.write(last_line)
-
-            # break when new article is reached
-            while not re.match(pattern, line) and line != "":
-                if re.match(annex, line):
-                    output.close()
-                    raise GetOutOfLoop
-                output.write(line)
-                line = input_file.readline()
-            output.close()
-            last_line = line
-    except GetOutOfLoop:
-        pass
-
+    split(granularity)
 else:
     # everything is put into one document
     output = open(f'{outputDir}.txt', 'w', encoding='UTF-8')
     documents.append(f'{outputDir}.txt')
-    try:
-        for line in input_file:
-            if re.match(annex, line):
-                output.close()
-                raise GetOutOfLoop
-            else:
-                output.write(line)
-        output.close()
-    except GetOutOfLoop:
-        pass
+    for line in input_file:
+        # stops when annex is reached
+        if re.match(heading_patterns["annex"], line):
+            output.close()
+            handle_annex(input_file)
+            break
+        else:
+            output.write(line)
+    output.close()
 
 input_file.close()
 os.remove(inputDir.replace(".pdf", ".txt"))
@@ -173,12 +164,10 @@ os.remove(inputDir.replace(".pdf", ".txt"))
 print("Removing noise...")
 
 
-# removes all remaining titles of subdivisions in a document
+# adds identifier to all remaining titles of subdivisions in a document
 def remove_titles(file):
-    patterns = ('PART .+?\n', 'TITLE .+?\n', 'CHAPTER .+?\n', '((S ?E ?C ?T ?I ?O ?N)|(S ?e ?c ?t ?i ?o ?n))[ 0-9A-Z]*\n',
-                '((S ?U ?B ?- ?S ?E ?C ?T ?I ?O ?N)|(S ?u ?b ?- ?S ?e ?c ?t ?i ?o ?n))[ 0-9A-Z]*\n', 'Article[ 0-9]+\n')
-
     input_file = open(file, encoding='UTF-8')
+
     # delete all titles
     # for pattern in patterns:
     #     input_file = re.sub(pattern, '', input_file)
@@ -186,7 +175,7 @@ def remove_titles(file):
     # update file
     text = ""
     for line in input_file:
-        for pattern in patterns:
+        for pattern in heading_patterns.values():
             # marks all titles with identifier for later recognition
             if re.match(pattern, line):
                 # TODO test
@@ -344,3 +333,13 @@ for document in documents:
     output = open(document, 'w', encoding='UTF-8')
     output.write(result)
     output.close()
+
+# remove noise in annex
+input_file = open(f'{outputDir}_annex.txt', encoding='UTF-8')
+result = ""
+for line in input_file:
+    remove_noise(line)
+input_file.close()
+output = open(f'{outputDir}_annex.txt', 'w', encoding='UTF-8')
+output.write(result)
+output.close()

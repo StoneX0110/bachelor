@@ -15,7 +15,8 @@ outputDir = input("Path to output folder: ")
 while not os.path.exists(outputDir):
     print("Path '" + str(outputDir) + "' does not exist.")
     outputDir = input("Please enter a valid path: ")
-outputDir += '/' + input("Enter name of output: ")
+# prompt for output filename
+outputDir += '/' + input("Enter output filename: ")
 
 # granularity by which the document will be split (by its chapters, articles, etc.) into multiple documents
 granularity = input("Enter granularity of splitting (available options: chapter | section | article | none): ")
@@ -233,15 +234,16 @@ def editor(line, footnote):
                 line = input_file.readline()
 
                 # check if paragraph is a footnote
-                # TODO "see page X of this Official Journal" or "not yet published in this Official Journal" as footnote identifier?
                 if "OJ" not in paragraph and paragraph != "":
-                    # if it is not a footnote, the paragraph is put into the method again
-                    ewc_temp = ends_with_comma
-                    ends_with_comma = False
-                    paragraph = paragraph.split('\n')
-                    for line_of_text in paragraph:
-                        editor(line_of_text + '\n', False)
-                    ends_with_comma = ewc_temp
+                    if not re.search('[Ss]ee( |\n)+page( |\n)+[0-9]+( |\n)+of( |\n)+this( |\n)+Official( |\n)+Journal', paragraph) and not re.search(
+                            'not( |\n)+yet( |\n)+published( |\n)+in( |\n)+the( |\n)+Official( |\n)+Journal', paragraph):
+                        # if it is not a footnote, the paragraph is put into the method again
+                        ewc_temp = ends_with_comma
+                        ends_with_comma = False
+                        paragraph = paragraph.split('\n')
+                        for line_of_text in paragraph:
+                            editor(line_of_text + '\n', False)
+                        ends_with_comma = ewc_temp
 
                 editor(line, True)
                 return
@@ -295,7 +297,7 @@ def remove_noise(line):
     global result
     if line != '\n':
         # remove enumeration at start of each text block
-        match = re.match(number_rb, line)
+        match = re.match('\(? ?[0-9]+ ?\)', line)
         if match:
             line = line.removeprefix(match.group(0))[1:]
         match = re.match(number_fs, line)
@@ -334,12 +336,15 @@ for document in documents:
     output.write(result)
     output.close()
 
-# remove noise in annex
-input_file = open(f'{outputDir}_annex.txt', encoding='UTF-8')
-result = ""
-for line in input_file:
-    remove_noise(line)
-input_file.close()
-output = open(f'{outputDir}_annex.txt', 'w', encoding='UTF-8')
-output.write(result)
-output.close()
+try:
+    # remove noise in annex
+    input_file = open(f'{outputDir}_annex.txt', encoding='UTF-8')
+    result = ""
+    for line in input_file:
+        remove_noise(line)
+    input_file.close()
+    output = open(f'{outputDir}_annex.txt', 'w', encoding='UTF-8')
+    output.write(result)
+    output.close()
+except FileNotFoundError:
+    pass

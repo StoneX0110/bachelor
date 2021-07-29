@@ -1,38 +1,31 @@
 import os
 import re
 import string
+import argparse
 
 # PDFBox https://pdfbox.apache.org
 
-# directory of pdf to be converted, asked in user prompt
-inputDir = input("Path to PDF file: ")
-while not os.path.exists(inputDir):
-    print("File could not be found at " + str(inputDir))
-    inputDir = input("Please enter a valid path: ")
+parser = argparse.ArgumentParser()
+parser.add_argument("input_file", help="path to pdf file")
+parser.add_argument("output_path", help="path to output folder")
+parser.add_argument("--granularity", "-g", help="granularity of splitting", choices=["chapter", "section", "article"], default="none")
+args = parser.parse_args()
 
-# directory of output to be stored at, asked in user prompt
-outputDir = input("Path to output folder: ")
-while not os.path.exists(outputDir):
-    print("Path '" + str(outputDir) + "' does not exist.")
-    outputDir = input("Please enter a valid path: ")
-# prompt for output filename
-outputDir += '/' + input("Enter output filename: ")
+# directory of pdf to be converted
+inputDir = args.input_file
 
-# granularity by which the document will be split (by its chapters, articles, etc.) into multiple documents
-granularity = input("Enter granularity of splitting (available options: chapter | section | article | none): ")
-while granularity != "chapter" and granularity != "section" and granularity != "article" and granularity != "none":
-    granularity = input("Please enter a valid option (available options: chapter | section | article | none): ")
+# directory where output will be stored at
+outputDir = args.output_path + '/' + os.path.basename(inputDir).rsplit(".", 1)[0]
+
+# granularity by which the document will be split into multiple documents
+granularity = args.granularity
+
 
 print("Converting PDF to plain text...")
 # convert pdf to plain text
 os.system(f'java -jar pdfbox-app-3.0.0-RC1.jar export:text -i={inputDir}')
 
 print("Splitting document...")
-
-
-# gets thrown when annex is reached when reading the input
-class GetOutOfLoop(Exception):
-    pass
 
 
 # removes table of contents from input file
@@ -64,7 +57,7 @@ documents = []  # stores names of all created documents for later processing
 heading_patterns = {"part": 'PART .+?\n', "title": 'TITLE .+?\n', "chapter": 'CHAPTER .+?\n',
                     "section": '((S ?E ?C ?T ?I ?O ?N)|(S ?e ?c ?t ?i ?o ?n))[ 0-9A-Z]*\n',
                     "sub-section": '((S ?U ?B ?- ?S ?E ?C ?T ?I ?O ?N)|(S ?u ?b ?- ?S ?e ?c ?t ?i ?o ?n))[ 0-9A-Z]*\n', "article": 'Article[ 0-9]+\n',
-                    "annex": 'ANNEX[I ]+\n'}  # pattern to recognize start of annex TODO maybe false pattern, check this
+                    "annex": 'ANNEX[I ]*\n'}  # pattern to recognize start of annex
 
 
 # stores annex in file
@@ -179,16 +172,14 @@ def remove_titles(file):
         for pattern in heading_patterns.values():
             # marks all titles with identifier for later recognition
             if re.match(pattern, line):
-                # TODO test
                 line = input_file.readline()
                 line = line.removesuffix("\n")
                 text += line + "TITLE_IDENT\n"
                 line = input_file.readline()
-                if line != "":
-                    while line[0] in string.ascii_lowercase:
-                        line = line.removesuffix("\n")
-                        text += line + "TITLE_IDENT\n"
-                        line = input_file.readline()
+                while line != "" and line[0] in string.ascii_lowercase:
+                    line = line.removesuffix("\n")
+                    text += line + "TITLE_IDENT\n"
+                    line = input_file.readline()
         text += line
     output = open(file, 'w', encoding='UTF-8')
     output.write(text)
@@ -346,5 +337,6 @@ try:
     output = open(f'{outputDir}_annex.txt', 'w', encoding='UTF-8')
     output.write(result)
     output.close()
+# pass if there is no annex
 except FileNotFoundError:
     pass

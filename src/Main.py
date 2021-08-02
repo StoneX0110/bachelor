@@ -2,6 +2,7 @@ import os
 import re
 import string
 import argparse
+from pathlib import Path
 
 # PDFBox https://pdfbox.apache.org
 
@@ -19,7 +20,6 @@ outputDir = args.output_path + '/' + os.path.basename(inputDir).rsplit(".", 1)[0
 
 # granularity by which the document will be split into multiple documents
 granularity = args.granularity
-
 
 print("Converting PDF to plain text...")
 # convert pdf to plain text

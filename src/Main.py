@@ -43,29 +43,26 @@ def remove_toc(input_file):
 
 
 # remove table of contents
-input_file = open(inputDir.replace(".pdf", ".txt"), encoding='UTF-8')
-result = remove_toc(input_file)
-input_file.close()
-input_file = open(inputDir.replace(".pdf", ".txt"), 'w', encoding='UTF-8')
-input_file.write(result)
-input_file.close()
+with open(inputDir.replace(".pdf", ".txt"), encoding='UTF-8') as input_file:
+    result = remove_toc(input_file)
+with open(inputDir.replace(".pdf", ".txt"), 'w', encoding='UTF-8') as input_file:
+    input_file.write(result)
 
-input_file = open(inputDir.replace(".pdf", ".txt"), encoding='UTF-8')
+
 documents = []  # stores names of all created documents for later processing
-
 # patterns for all headings of subdivisions
 heading_patterns = {"part": 'PART .+?\n', "title": 'TITLE .+?\n', "chapter": 'CHAPTER .+?\n',
                     "section": '((S ?E ?C ?T ?I ?O ?N)|(S ?e ?c ?t ?i ?o ?n))[ 0-9A-Z]*\n',
-                    "sub-section": '((S ?U ?B ?- ?S ?E ?C ?T ?I ?O ?N)|(S ?u ?b ?- ?S ?e ?c ?t ?i ?o ?n))[ 0-9A-Z]*\n', "article": 'Article[ 0-9]+\n',
+                    "sub-section": '((S ?U ?B ?- ?S ?E ?C ?T ?I ?O ?N)|(S ?u ?b ?- ?S ?e ?c ?t ?i ?o ?n))[ 0-9A-Z]*\n',
+                    "article": 'Article[ 0-9]+\n',
                     "annex": 'ANNEX[I ]*\n'}  # pattern to recognize start of annex
 
 
 # stores annex in file
 def handle_annex(input_file):
-    output = open(f'{outputDir}_annex.txt', 'w', encoding='UTF-8')
-    for line in input_file:
-        output.write(line)
-    output.close()
+    with open(f'{outputDir}_annex.txt', 'w', encoding='UTF-8') as output:
+        for line in input_file:
+            output.write(line)
 
 
 # split a document by granularity
@@ -96,64 +93,67 @@ def split(granularity):
     return counter
 
 
-if granularity == "chapter" or granularity == "section":
-    chapter_count = split("chapter")
+with open(inputDir.replace(".pdf", ".txt"), encoding='UTF-8') as input_file:
+    if granularity == "chapter" or granularity == "section":
+        chapter_count = split("chapter")
 
-    if granularity == "section":
-        # if counter > 1 ?
-        # search every chapter for sections
-        for i in range(chapter_count - 1):
-            section_count = 0  # keeps track of section count per chapter
-            chapter = open(f'{outputDir}_chapter_{i + 1}.txt', encoding='UTF-8')
-            last_line = ""
-            for line in chapter:
-                # store every section in its own file
-                output = open(f'{outputDir}_chapter_{i + 1}_section_{section_count}.txt', 'w', encoding='UTF-8')
-                documents.append(f'{outputDir}_chapter_{i + 1}_section_{section_count}.txt')
+        if granularity == "section":
+            # if counter > 1 ?
+            # search every chapter for sections
+            for i in range(chapter_count - 1):
+                section_count = 0  # keeps track of section count per chapter
+                chapter = open(f'{outputDir}_chapter_{i + 1}.txt', encoding='UTF-8')
+                last_line = ""
+                for line in chapter:
+                    # store every section in its own file
+                    output = open(f'{outputDir}_chapter_{i + 1}_section_{section_count}.txt', 'w', encoding='UTF-8')
+                    documents.append(f'{outputDir}_chapter_{i + 1}_section_{section_count}.txt')
 
-                # adds the heading to this file (which is the last_line from previous file)
-                if last_line != "":
-                    output.write(last_line)
+                    # adds the heading to this file (which is the last_line from previous file)
+                    if last_line != "":
+                        output.write(last_line)
 
-                # break when new section is reached
-                while not re.match(heading_patterns[granularity], line) and line != "":
-                    output.write(line)
-                    line = chapter.readline()
-                if re.match(heading_patterns[granularity], line):
-                    section_count += 1
-                output.close()
-                last_line = line
-            chapter.close()
+                    # break when new section is reached
+                    while not re.match(heading_patterns[granularity], line) and line != "":
+                        output.write(line)
+                        line = chapter.readline()
+                    if re.match(heading_patterns[granularity], line):
+                        section_count += 1
+                    output.close()
+                    last_line = line
+                chapter.close()
 
-            # if there were sections in the chapter, the original chapter file gets removed
-            if section_count > 0:
-                documents.remove(f'{outputDir}_chapter_{i + 1}.txt')
-                os.remove(f'{outputDir}_chapter_{i + 1}.txt')
-                documents.remove(f'{outputDir}_chapter_{i + 1}_section_{0}.txt')
-                os.remove(f'{outputDir}_chapter_{i + 1}_section_{0}.txt')
-            # if there were no sections, we need to remove the document of 'section 0' (it has the same text as the respective chapter document)
-            elif section_count == 0:
-                documents.remove(f'{outputDir}_chapter_{i + 1}_section_{section_count}.txt')
-                os.remove(f'{outputDir}_chapter_{i + 1}_section_{section_count}.txt')
+                # if there were sections in the chapter, the original chapter file gets removed
+                if section_count > 0:
+                    documents.remove(f'{outputDir}_chapter_{i + 1}.txt')
+                    os.remove(f'{outputDir}_chapter_{i + 1}.txt')
+                    documents.remove(f'{outputDir}_chapter_{i + 1}_section_{0}.txt')
+                    os.remove(f'{outputDir}_chapter_{i + 1}_section_{0}.txt')
+                # if there were no sections, we need to remove the document of 'section 0' (it has the same text as the respective chapter document)
+                elif section_count == 0:
+                    documents.remove(f'{outputDir}_chapter_{i + 1}_section_{section_count}.txt')
+                    os.remove(f'{outputDir}_chapter_{i + 1}_section_{section_count}.txt')
+        input_file.close()
+        os.remove(inputDir.replace(".pdf", ".txt"))
 
-elif granularity == "article":
-    split(granularity)
-else:
-    # everything is put into one document
-    output = open(f'{outputDir}.txt', 'w', encoding='UTF-8')
-    documents.append(f'{outputDir}.txt')
-    for line in input_file:
-        # stops when annex is reached
-        if re.match(heading_patterns["annex"], line):
-            output.close()
-            handle_annex(input_file)
-            break
-        else:
-            output.write(line)
-    output.close()
+    elif granularity == "article":
+        split(granularity)
+        input_file.close()
+        os.remove(inputDir.replace(".pdf", ".txt"))
 
-input_file.close()
-os.remove(inputDir.replace(".pdf", ".txt"))
+    else:
+        # everything is put into one document
+        result = ""
+        documents.append(f'{outputDir}.txt')
+        for line in input_file:
+            # stops when annex is reached
+            if re.match(heading_patterns["annex"], line):
+                handle_annex(input_file)
+                break
+            else:
+                result += line
+        with open(f'{outputDir}.txt', 'w', encoding='UTF-8') as output:
+            output.write(result)
 
 print("Removing noise...")
 
@@ -181,9 +181,8 @@ def remove_titles(file):
                     text += line + "TITLE_IDENT\n"
                     line = input_file.readline()
         text += line
-    output = open(file, 'w', encoding='UTF-8')
-    output.write(text)
-    output.close()
+    with open(file, 'w', encoding='UTF-8') as output:
+        output.write(text)
 
 
 # regex to identify page headers
@@ -276,7 +275,7 @@ number_rb = '\( ?[0-9]+ ?\)'  # number within round brackets, e.g. "(1)"
 number_fs = '[0-9]+\.'  # number ending with full stop, e.g. "1."
 letter_rb = '\([a-z]\)'  # lower-case letter within round brackets, e.g. "(a)"
 roman_rb = '\([x,i,v]{1,4}\)'  # roman numerals within round brackets, recognizes up to no. 17 (xvii)
-regulation = '\(E?E[CU]\) (No )?[0-9]+/[0-9]+'  # name of a Regulation, e.g. "(EEC) No 2956/84" # TODO maybe make (EC)/(EU)/etc. optional? -> test
+regulation = '\(E?E[CU]\) (No )?[0-9]+/[0-9]+'  # name of a Regulation, e.g. "(EEC) No 2956/84"
 directive_old = '(No )?[0-9]+/[0-9]+/[A-Z]+'  # name of a Directive/Decision before 01.01.2015, e.g. "91/477/EEC"
 directive_new = '(\(EU\)|\(Euratom\)|\(EU, Euratom\)|\(CFSP\)) [0-9]+/[0-9]+'  # name of a Directive/Decision after 01.01.2015, e.g. "(EU) 2016/680"
 # remark: number_fs is only checked at start of line, because otherwise in e.g. "[...] Regulation (EC) 183/2005. [...]" the 2005 gets removed
@@ -313,9 +312,8 @@ for document in documents:
     for line in input_file:
         editor(line, True)
     input_file.close()
-    output = open(document, 'w', encoding='UTF-8')
-    output.write(result)
-    output.close()
+    with open(document, 'w', encoding='UTF-8') as output:
+        output.write(result)
 
     # remove remaining noise
     input_file = open(document, encoding='UTF-8')
@@ -323,9 +321,8 @@ for document in documents:
     for line in input_file:
         remove_noise(line)
     input_file.close()
-    output = open(document, 'w', encoding='UTF-8')
-    output.write(result)
-    output.close()
+    with open(document, 'w', encoding='UTF-8') as output:
+        output.write(result)
 
 try:
     # remove noise in annex
@@ -334,9 +331,8 @@ try:
     for line in input_file:
         remove_noise(line)
     input_file.close()
-    output = open(f'{outputDir}_annex.txt', 'w', encoding='UTF-8')
-    output.write(result)
-    output.close()
+    with open(f'{outputDir}_annex.txt', 'w', encoding='UTF-8') as output:
+        output.write(result)
 # pass if there is no annex
 except FileNotFoundError:
     pass

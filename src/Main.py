@@ -23,7 +23,7 @@ granularity = args.granularity
 
 print("Converting PDF to plain text...")
 # convert pdf to plain text
-os.system(f'java -jar pdfbox-app-3.0.0-RC1.jar export:text -i={inputDir}')
+os.system(f'java -jar {os.path.join(Path(__file__).parent, "pdfbox-app-3.0.0-RC1.jar")} export:text -i={inputDir}')
 
 print("Splitting document...")
 

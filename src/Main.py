@@ -8,7 +8,7 @@ from pathlib import Path
 
 parser = argparse.ArgumentParser()
 parser.add_argument("input_file", help="path to pdf file")
-parser.add_argument("output_path", help="path to output folder")
+parser.add_argument("output_path", help="path to output directory")
 parser.add_argument("--granularity", "-g", help="granularity of splitting", choices=["chapter", "section", "article"], default="none")
 args = parser.parse_args()
 
@@ -161,10 +161,6 @@ print("Removing noise...")
 # adds identifier to all remaining titles of subdivisions in a document
 def remove_titles(file):
     input_file = open(file, encoding='UTF-8')
-
-    # delete all titles
-    # for pattern in patterns:
-    #     input_file = re.sub(pattern, '', input_file)
 
     # update file
     text = ""

@@ -45,7 +45,6 @@ def index():
             return redirect(request.url)
         # if file is a pdf
         if allowed(file.filename):
-            cleanup()
             filename = secure_filename(file.filename)
             file.save(filename)
             # execute code from Main.py
@@ -56,7 +55,12 @@ def index():
                     f"py {main_dir} {os.path.join(os.getcwd(), filename)} {os.path.join(os.getcwd(), 'output')} -g {request.form.get('granularity')}")
             os.remove(f'{os.path.join(os.getcwd(), filename)}')
             # redirect to site which provides output to user
-            return redirect("output")
+            return '''
+                <p>Upload successful!</p>
+                <a href="/files">Click here</a> to receive the processed files.
+                <br><br>
+                <a href="/">Return to homepage</a>
+            '''
     # main page
     return '''
         <h1>Document Clean-Up</h1>
@@ -73,7 +77,7 @@ def index():
     '''
 
 
-@app.route("/output")
+@app.route("/files")
 def output():
     data = io.BytesIO()
     # zip output files
@@ -81,6 +85,9 @@ def output():
         for f_name in os.listdir('output'):
             z.write(os.path.join('output', f_name))
     data.seek(0)
+
+    cleanup()
+
     # send zip-file to user
     return send_file(
         data,

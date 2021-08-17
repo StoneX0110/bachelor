@@ -12,6 +12,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("data_storage", help="path to directory where user files will be stored at")
 args = parser.parse_args()
 
+#TODO don't chdir but always use data_storage+path as absolute path
 os.chdir(args.data_storage)
 if not os.path.exists("output"):
     os.mkdir("output")
@@ -33,7 +34,7 @@ def cleanup():
     shutil.rmtree("output")
     os.mkdir("output")
 
-
+#TODO split up in one method for GET and one for POST
 @app.route("/", methods=["GET", "POST"])
 def index():
     # if user uploaded a file
@@ -48,13 +49,15 @@ def index():
             filename = secure_filename(file.filename)
             file.save(filename)
             # execute code from Main.py
+            #TODO wrap Main script in function and call function with arguments
             if request.form.get("granularity") == "none":
                 os.system(f"py {main_dir} {os.path.join(os.getcwd(), filename)} {os.path.join(os.getcwd(), 'output')}")
-            else:
+            else:#TODO wrap Main script in function and call function with arguments
                 os.system(
                     f"py {main_dir} {os.path.join(os.getcwd(), filename)} {os.path.join(os.getcwd(), 'output')} -g {request.form.get('granularity')}")
             os.remove(f'{os.path.join(os.getcwd(), filename)}')
             # redirect to site which provides output to user
+            # TODO put html in render template
             return '''
                 <p>Upload successful!</p>
                 <a href="/files">Click here</a> to receive the processed files.
@@ -62,6 +65,7 @@ def index():
                 <a href="/">Return to homepage</a>
             '''
     # main page
+    #TODO put html in render template
     return '''
         <h1>Document Clean-Up</h1>
         <form method=post enctype=multipart/form-data>
@@ -76,7 +80,7 @@ def index():
         <input type=submit value=Submit>
     '''
 
-
+# TODO pass uuid as argument and create folder for each uuid and remove only the respective folder when doing cleanup. This leads to multi-user handling
 @app.route("/files")
 def output():
     data = io.BytesIO()

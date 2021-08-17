@@ -154,6 +154,7 @@ with open(inputDir.replace(".pdf", ".txt"), encoding='UTF-8') as input_file:
                 result += line
         with open(f'{outputDir}.txt', 'w', encoding='UTF-8') as output:
             output.write(result)
+        # TODO remove converted txt file when input and output directory are different
 
 print("Removing noise...")
 
@@ -276,6 +277,8 @@ directive_old = '(No )?[0-9]+/[0-9]+/[A-Z]+'  # name of a Directive/Decision bef
 directive_new = '(\(EU\)|\(Euratom\)|\(EU, Euratom\)|\(CFSP\)) [0-9]+/[0-9]+'  # name of a Directive/Decision after 01.01.2015, e.g. "(EU) 2016/680"
 # remark: number_fs is only checked at start of line, because otherwise in e.g. "[...] Regulation (EC) 183/2005. [...]" the 2005 gets removed
 patterns = (number_rb, letter_rb, roman_rb, regulation, directive_old, directive_new)
+# TODO let names of legal acts be removed first (move pattern at start of list above)
+#  so that we can remove number_fs with re.sub and not just at the beginning of a line (needs to be tested, though)
 
 
 # remove noise from each previously created document

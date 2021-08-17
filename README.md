@@ -3,9 +3,14 @@
 ## Required programs
 The program has been developed and tested with Java 12.0.1 and Python 3.9.1.
 
-## Install
+## Installation
+Clone project
 ```
 git clone https://github.com/StoneX0110/bachelor
+```
+Install dependencies
+```
+pip install -r requirements.txt
 ```
 
 ## Usage

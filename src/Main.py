@@ -6,27 +6,6 @@ from pathlib import Path
 
 # PDFBox https://pdfbox.apache.org
 
-parser = argparse.ArgumentParser()
-parser.add_argument("input_file", help="path to pdf file")
-parser.add_argument("output_path", help="path to output directory")
-parser.add_argument("--granularity", "-g", help="granularity of splitting", choices=["chapter", "section", "article"], default="none")
-args = parser.parse_args()
-
-# directory of pdf to be converted
-inputDir = args.input_file
-
-# directory where output will be stored at
-outputDir = args.output_path + '/' + os.path.basename(inputDir).rsplit(".", 1)[0]
-
-# granularity by which the document will be split into multiple documents
-granularity = args.granularity
-
-print("Converting PDF to plain text...")
-# convert pdf to plain text
-os.system(f'java -jar {os.path.join(Path(__file__).parent, "pdfbox-app-3.0.0-RC1.jar")} export:text -i={inputDir}')
-
-print("Splitting document...")
-
 
 # removes table of contents from input file
 def remove_toc(input_file):
@@ -42,13 +21,6 @@ def remove_toc(input_file):
     return result
 
 
-# remove table of contents
-with open(inputDir.replace(".pdf", ".txt"), encoding='UTF-8') as input_file:
-    result = remove_toc(input_file)
-with open(inputDir.replace(".pdf", ".txt"), 'w', encoding='UTF-8') as input_file:
-    input_file.write(result)
-
-
 documents = []  # stores names of all created documents for later processing
 # patterns for all headings of subdivisions
 heading_patterns = {"part": 'PART .+?\n', "title": 'TITLE .+?\n', "chapter": 'CHAPTER .+?\n',
@@ -59,14 +31,16 @@ heading_patterns = {"part": 'PART .+?\n', "title": 'TITLE .+?\n', "chapter": 'CH
 
 
 # stores annex in file
-def handle_annex(input_file):
+def handle_annex(input_file, outputDir):
     with open(f'{outputDir}_annex.txt', 'w', encoding='UTF-8') as output:
         for line in input_file:
             output.write(line)
 
 
 # split a document by granularity
-def split(granularity):
+def split(granularity, outputDir):
+    global input_file
+
     counter = 0  # keeps track of chapter/article count
     last_line = ""
     for line in input_file:
@@ -84,7 +58,7 @@ def split(granularity):
             # stops when annex is reached
             if re.match(heading_patterns["annex"], line):
                 output.close()
-                handle_annex(input_file)
+                handle_annex(input_file, outputDir)
                 return counter
             output.write(line)
             line = input_file.readline()
@@ -93,74 +67,10 @@ def split(granularity):
     return counter
 
 
-with open(inputDir.replace(".pdf", ".txt"), encoding='UTF-8') as input_file:
-    if granularity == "chapter" or granularity == "section":
-        chapter_count = split("chapter")
-
-        if granularity == "section":
-            # if counter > 1 ?
-            # search every chapter for sections
-            for i in range(chapter_count - 1):
-                section_count = 0  # keeps track of section count per chapter
-                chapter = open(f'{outputDir}_chapter_{i + 1}.txt', encoding='UTF-8')
-                last_line = ""
-                for line in chapter:
-                    # store every section in its own file
-                    output = open(f'{outputDir}_chapter_{i + 1}_section_{section_count}.txt', 'w', encoding='UTF-8')
-                    documents.append(f'{outputDir}_chapter_{i + 1}_section_{section_count}.txt')
-
-                    # adds the heading to this file (which is the last_line from previous file)
-                    if last_line != "":
-                        output.write(last_line)
-
-                    # break when new section is reached
-                    while not re.match(heading_patterns[granularity], line) and line != "":
-                        output.write(line)
-                        line = chapter.readline()
-                    if re.match(heading_patterns[granularity], line):
-                        section_count += 1
-                    output.close()
-                    last_line = line
-                chapter.close()
-
-                # if there were sections in the chapter, the original chapter file gets removed
-                if section_count > 0:
-                    documents.remove(f'{outputDir}_chapter_{i + 1}.txt')
-                    os.remove(f'{outputDir}_chapter_{i + 1}.txt')
-                    documents.remove(f'{outputDir}_chapter_{i + 1}_section_{0}.txt')
-                    os.remove(f'{outputDir}_chapter_{i + 1}_section_{0}.txt')
-                # if there were no sections, we need to remove the document of 'section 0' (it has the same text as the respective chapter document)
-                elif section_count == 0:
-                    documents.remove(f'{outputDir}_chapter_{i + 1}_section_{section_count}.txt')
-                    os.remove(f'{outputDir}_chapter_{i + 1}_section_{section_count}.txt')
-        input_file.close()
-        os.remove(inputDir.replace(".pdf", ".txt"))
-
-    elif granularity == "article":
-        split(granularity)
-        input_file.close()
-        os.remove(inputDir.replace(".pdf", ".txt"))
-
-    else:
-        # everything is put into one document
-        result = ""
-        documents.append(f'{outputDir}.txt')
-        for line in input_file:
-            # stops when annex is reached
-            if re.match(heading_patterns["annex"], line):
-                handle_annex(input_file)
-                break
-            else:
-                result += line
-        with open(f'{outputDir}.txt', 'w', encoding='UTF-8') as output:
-            output.write(result)
-        # TODO remove converted txt file when input and output directory are different
-
-print("Removing noise...")
-
-
 # adds identifier to all remaining titles of subdivisions in a document
 def remove_titles(file):
+    global input_file
+
     input_file = open(file, encoding='UTF-8')
 
     # update file
@@ -195,8 +105,7 @@ ends_with_comma = False  # stores whether previous line ended with comma
 
 # removes spurious newlines, page headers and footnotes
 def editor(line, footnote):
-    global ends_with_comma
-    global result
+    global ends_with_comma, result, input_file
 
     # recognize titles through identifier
     while line.endswith("TITLE_IDENT\n"):
@@ -300,38 +209,138 @@ def remove_noise(line):
     result += line
 
 
-# remove noise in documents
-for document in documents:
-    # remove remaining titles in document
-    remove_titles(document)
+def main(inputDir, outputDir, granularity):
+    global input_file, result
 
-    # remove spurious newlines, page headers and footnotes
-    input_file = open(document, encoding='UTF-8')
-    result = ""
-    for line in input_file:
-        editor(line, True)
-    input_file.close()
-    with open(document, 'w', encoding='UTF-8') as output:
-        output.write(result)
+    outputDir += '/' + os.path.basename(inputDir).rsplit(".", 1)[0]
 
-    # remove remaining noise
-    input_file = open(document, encoding='UTF-8')
-    result = ""
-    for line in input_file:
-        remove_noise(line)
-    input_file.close()
-    with open(document, 'w', encoding='UTF-8') as output:
-        output.write(result)
+    print("Converting PDF to plain text...")
+    # convert pdf to plain text
+    os.system(f'java -jar {os.path.join(Path(__file__).parent, "pdfbox-app-3.0.0-RC1.jar")} export:text -i={inputDir}')
 
-try:
-    # remove noise in annex
-    input_file = open(f'{outputDir}_annex.txt', encoding='UTF-8')
-    result = ""
-    for line in input_file:
-        remove_noise(line)
-    input_file.close()
-    with open(f'{outputDir}_annex.txt', 'w', encoding='UTF-8') as output:
-        output.write(result)
-# pass if there is no annex
-except FileNotFoundError:
-    pass
+    print("Splitting document...")
+    # remove table of contents
+    with open(inputDir.replace(".pdf", ".txt"), encoding='UTF-8') as input_file:
+        result = remove_toc(input_file)
+    with open(inputDir.replace(".pdf", ".txt"), 'w', encoding='UTF-8') as input_file:
+        input_file.write(result)
+    with open(inputDir.replace(".pdf", ".txt"), encoding='UTF-8') as input_file:
+        if granularity == "chapter" or granularity == "section":
+            chapter_count = split("chapter", outputDir)
+
+            if granularity == "section":
+                # if counter > 1 ?
+                # search every chapter for sections
+                for i in range(chapter_count - 1):
+                    section_count = 0  # keeps track of section count per chapter
+                    chapter = open(f'{outputDir}_chapter_{i + 1}.txt', encoding='UTF-8')
+                    last_line = ""
+                    for line in chapter:
+                        # store every section in its own file
+                        output = open(f'{outputDir}_chapter_{i + 1}_section_{section_count}.txt', 'w', encoding='UTF-8')
+                        documents.append(f'{outputDir}_chapter_{i + 1}_section_{section_count}.txt')
+
+                        # adds the heading to this file (which is the last_line from previous file)
+                        if last_line != "":
+                            output.write(last_line)
+
+                        # break when new section is reached
+                        while not re.match(heading_patterns[granularity], line) and line != "":
+                            output.write(line)
+                            line = chapter.readline()
+                        if re.match(heading_patterns[granularity], line):
+                            section_count += 1
+                        output.close()
+                        last_line = line
+                    chapter.close()
+
+                    # if there were sections in the chapter, the original chapter file gets removed
+                    if section_count > 0:
+                        documents.remove(f'{outputDir}_chapter_{i + 1}.txt')
+                        os.remove(f'{outputDir}_chapter_{i + 1}.txt')
+                        documents.remove(f'{outputDir}_chapter_{i + 1}_section_{0}.txt')
+                        os.remove(f'{outputDir}_chapter_{i + 1}_section_{0}.txt')
+                    # if there were no sections, we need to remove the document of 'section 0' (it has the same text as the respective chapter document)
+                    elif section_count == 0:
+                        documents.remove(f'{outputDir}_chapter_{i + 1}_section_{section_count}.txt')
+                        os.remove(f'{outputDir}_chapter_{i + 1}_section_{section_count}.txt')
+            input_file.close()
+            os.remove(inputDir.replace(".pdf", ".txt"))
+
+        elif granularity == "article":
+            split(granularity, outputDir)
+            input_file.close()
+            os.remove(inputDir.replace(".pdf", ".txt"))
+
+        else:
+            # everything is put into one document
+            result = ""
+            documents.append(f'{outputDir}.txt')
+            for line in input_file:
+                # stops when annex is reached
+                if re.match(heading_patterns["annex"], line):
+                    handle_annex(input_file, outputDir)
+                    break
+                else:
+                    result += line
+            with open(f'{outputDir}.txt', 'w', encoding='UTF-8') as output:
+                output.write(result)
+            # TODO remove converted txt file when input and output directory are different
+
+    print("Removing noise...")
+
+    # remove noise in documents
+    for document in documents:
+        # remove remaining titles in document
+        remove_titles(document)
+
+        # remove spurious newlines, page headers and footnotes
+        input_file = open(document, encoding='UTF-8')
+        result = ""
+        for line in input_file:
+            editor(line, True)
+        input_file.close()
+        with open(document, 'w', encoding='UTF-8') as output:
+            output.write(result)
+
+        # remove remaining noise
+        input_file = open(document, encoding='UTF-8')
+        result = ""
+        for line in input_file:
+            remove_noise(line)
+        input_file.close()
+        with open(document, 'w', encoding='UTF-8') as output:
+            output.write(result)
+
+    try:
+        # remove noise in annex
+        input_file = open(f'{outputDir}_annex.txt', encoding='UTF-8')
+        result = ""
+        for line in input_file:
+            remove_noise(line)
+        input_file.close()
+        with open(f'{outputDir}_annex.txt', 'w', encoding='UTF-8') as output:
+            output.write(result)
+    # pass if there is no annex
+    except FileNotFoundError:
+        pass
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("input_file", help="path to pdf file")
+    parser.add_argument("output_path", help="path to output directory")
+    parser.add_argument("--granularity", "-g", help="granularity of splitting",
+                        choices=["chapter", "section", "article"], default="none")
+    args = parser.parse_args()
+
+    # directory of pdf to be converted
+    inputDir = args.input_file
+
+    # directory where output will be stored at
+    outputDir = args.output_path
+
+    # granularity by which the document will be split into multiple documents
+    granularity = args.granularity
+
+    main(inputDir, outputDir, granularity)

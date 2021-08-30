@@ -67,8 +67,8 @@ def split(granularity, outputDir):
     return counter
 
 
-# adds identifier to all remaining titles of subdivisions in a document
-def remove_titles(file):
+# removes headings and adds identifier to all remaining titles of subdivisions in a document
+def remove_headings(file):
     global input_file
 
     input_file = open(file, encoding='UTF-8')
@@ -291,8 +291,8 @@ def main(inputDir, outputDir, granularity):
 
     # remove noise in documents
     for document in documents:
-        # remove remaining titles in document
-        remove_titles(document)
+        # remove remaining headings in document
+        remove_headings(document)
 
         # remove spurious newlines, page headers and footnotes
         input_file = open(document, encoding='UTF-8')

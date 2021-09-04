@@ -15,7 +15,7 @@ def remove_toc(input_file):
             line = input_file.readline()
             identifier = line
             line = input_file.readline()
-            while not re.match(line[:re.search('[ ]*$', line).start()], identifier):
+            while not re.match(re.escape(line[:re.search('[ ]*$', line).start()]), identifier):
                 line = input_file.readline()
         result += line
     return result

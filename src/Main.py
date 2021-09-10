@@ -261,6 +261,8 @@ def editor(line, footnote):
             # merge word which was separated at end of line (information loss in case of hyphenated word)
             if line.endswith('­'):
                 line = line.removesuffix('­')
+            elif line.endswith('-'):
+                line = line.removesuffix('-')
             else:
                 line += " "
 

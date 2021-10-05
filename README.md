@@ -14,6 +14,7 @@ pip install -r requirements.txt
 ```
 
 ## Usage
+### 1. Main
 Run Main.py from anywhere with the following arguments:
 1. the path to the pdf file that should be processed
 2. the directory where the output files should be stored at
@@ -35,6 +36,27 @@ optional arguments:
 
 Example (Windows):
 ```
-py C:/Users/USER/bachelor/src/Main.py C:/Users/USER/Documents/pdf_document.pdf C:/Users/USER/Documents/Output -granularity article
+python C:/Users/USER/bachelor/src/Main.py C:/Users/USER/Documents/pdf_document.pdf C:/Users/USER/Documents/Output -granularity article
 ```
-This would process `pdf_document.pdf`, split it by its articles and store the output files in `C:/Users/USER/Documents/Output`
+This would process `pdf_document.pdf`, split it by its articles and store the output files at `C:/Users/USER/Documents/Output`
+
+### 2. Web Service
+Run Web.py from anywhere with the following arguments:
+1. the path to the folder where the processed files should be temporarily stored at
+
+Important: to avoid any errors, enter paths with slashes, not backslashes
+```
+usage: Web.py [-h] data_storage
+
+positional arguments:
+  data_storage  path to directory where user files will be stored at
+
+optional arguments:
+  -h, --help    show this help message and exit
+```
+
+Example (Windows):
+```
+python C:/Users/USER/bachelor/src/Web.py C:/Users/USER/Documents/Web_Service_Storage
+```
+This would start the web service (available at localhost with port 1337) and temporarily store the processed files at `C:/Users/USER/Documents/Web_Service_Storage`
